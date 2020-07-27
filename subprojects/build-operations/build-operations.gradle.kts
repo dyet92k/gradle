@@ -23,4 +23,5 @@ description = "Build operations are our way to inspect the process of executing 
 dependencies {
     implementation(project(":baseAnnotations"))
     implementation(libs.guava)
+    implementation(libs.slf4jApi)
 }
