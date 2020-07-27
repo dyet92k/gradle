@@ -29,7 +29,7 @@ import java.util.function.LongSupplier;
 
 public abstract class AbstractBuildOperationRunner implements BuildOperationRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractBuildOperationRunner.class);
-    protected static BuildOperationWorker<RunnableBuildOperation> RUNNABLE_BUILD_OPERATION_WORKER = new RunnableBuildOperationWorker();
+    protected static final BuildOperationWorker<RunnableBuildOperation> RUNNABLE_BUILD_OPERATION_WORKER = new RunnableBuildOperationWorker();
 
     protected final BuildOperationListener listener;
     private final LongSupplier clock;
