@@ -115,6 +115,7 @@ class DefaultWriteContext(
         val unsafeWrite = ::stackUnsafeWrite as Function2<Any?, Continuation<Unit>, Any>
         do {
             val call = pendingWriteCall!!
+            pendingWriteCall = null
             val k = call.k
             val result = unsafeWrite.invoke(call.value, k)
             if (result !== COROUTINE_SUSPENDED) {
@@ -320,6 +321,7 @@ class DefaultReadContext(
         try {
             while (true) {
                 val call = pendingReadCall!!
+                pendingReadCall = null
                 val result = unsafeRead.invoke(call)
                 if (result !== COROUTINE_SUSPENDED) {
                     call.resume(result)
