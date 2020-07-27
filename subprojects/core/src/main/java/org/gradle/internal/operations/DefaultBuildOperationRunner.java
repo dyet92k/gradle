@@ -16,26 +16,27 @@
 
 package org.gradle.internal.operations;
 
-import org.gradle.internal.UncheckedException;
-import org.gradle.internal.time.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import javax.annotation.OverridingMethodsMustInvokeSuper;
+import java.io.IOException;
 import java.io.ObjectStreamException;
+import java.io.UncheckedIOException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 
 public class DefaultBuildOperationRunner implements BuildOperationRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultBuildOperationRunner.class);
     protected static BuildOperationWorker<RunnableBuildOperation> RUNNABLE_BUILD_OPERATION_WORKER = new RunnableBuildOperationWorker();
 
     protected final BuildOperationListener listener;
-    protected final Clock clock;
+    private final LongSupplier clock;
     private final BuildOperationIdFactory buildOperationIdFactory;
     private final CurrentBuildOperationRef currentBuildOperationRef = CurrentBuildOperationRef.instance();
 
-    public DefaultBuildOperationRunner(BuildOperationListener listener, Clock clock, BuildOperationIdFactory buildOperationIdFactory) {
+    public DefaultBuildOperationRunner(BuildOperationListener listener, LongSupplier clock, BuildOperationIdFactory buildOperationIdFactory) {
         this.listener = listener;
         this.clock = clock;
         this.buildOperationIdFactory = buildOperationIdFactory;
@@ -72,7 +73,7 @@ public class DefaultBuildOperationRunner implements BuildOperationRunner {
                 }
                 listener.stop(operationState, context);
                 if (failure != null) {
-                    throw UncheckedException.throwAsUncheckedException(failure, true);
+                    throw throwAsUncheckedException(failure);
                 }
                 return buildOperation;
             } finally {
@@ -131,7 +132,7 @@ public class DefaultBuildOperationRunner implements BuildOperationRunner {
 
         assertParentRunning("Cannot start operation (%s) as parent operation (%s) has already completed.", descriptor, parent);
 
-        BuildOperationState operationState = new BuildOperationState(descriptor, clock.getCurrentTime());
+        BuildOperationState operationState = new BuildOperationState(descriptor, getCurrentTime());
         operationState.setRunning(true);
         BuildOperationState parentOperation = getCurrentBuildOperation();
         setCurrentBuildOperation(operationState);
@@ -146,7 +147,7 @@ public class DefaultBuildOperationRunner implements BuildOperationRunner {
             @Override
             public void stop(BuildOperationState operationState, DefaultBuildOperationContext context) {
                 LOGGER.debug("Completing Build operation '{}'", descriptor.getDisplayName());
-                listener.finished(descriptor, new OperationFinishEvent(operationState.getStartTime(), clock.getCurrentTime(), context.failure, context.result));
+                listener.finished(descriptor, new OperationFinishEvent(operationState.getStartTime(), getCurrentTime(), context.failure, context.result));
                 assertParentRunning("Parent operation (%2$s) completed before this operation (%1$s).", descriptor, parent);
             }
 
@@ -207,6 +208,26 @@ public class DefaultBuildOperationRunner implements BuildOperationRunner {
         return descriptorBuilder.build(id, parent == null
             ? null
             : parent.getDescription().getId());
+    }
+
+    private static RuntimeException throwAsUncheckedException(Throwable t) {
+        if (t instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        if (t instanceof RuntimeException) {
+            throw (RuntimeException) t;
+        }
+        if (t instanceof Error) {
+            throw (Error) t;
+        }
+        if (t instanceof IOException) {
+            throw new UncheckedIOException(t.getMessage(), (IOException) t);
+        }
+        throw new RuntimeException(t.getMessage(), t);
+    }
+
+    protected long getCurrentTime() {
+        return clock.getAsLong();
     }
 
     protected interface BuildOperationExecution<O> {
