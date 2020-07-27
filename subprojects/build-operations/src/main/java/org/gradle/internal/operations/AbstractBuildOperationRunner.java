@@ -27,16 +27,15 @@ import java.io.UncheckedIOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 
-public class DefaultBuildOperationRunner implements BuildOperationRunner {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultBuildOperationRunner.class);
+public abstract class AbstractBuildOperationRunner implements BuildOperationRunner {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractBuildOperationRunner.class);
     protected static BuildOperationWorker<RunnableBuildOperation> RUNNABLE_BUILD_OPERATION_WORKER = new RunnableBuildOperationWorker();
 
     protected final BuildOperationListener listener;
     private final LongSupplier clock;
     private final BuildOperationIdFactory buildOperationIdFactory;
-    private final CurrentBuildOperationRef currentBuildOperationRef = CurrentBuildOperationRef.instance();
 
-    public DefaultBuildOperationRunner(BuildOperationListener listener, LongSupplier clock, BuildOperationIdFactory buildOperationIdFactory) {
+    public AbstractBuildOperationRunner(BuildOperationListener listener, LongSupplier clock, BuildOperationIdFactory buildOperationIdFactory) {
         this.listener = listener;
         this.clock = clock;
         this.buildOperationIdFactory = buildOperationIdFactory;
@@ -127,7 +126,7 @@ public class DefaultBuildOperationRunner implements BuildOperationRunner {
     }
 
     private <O> O execute(BuildOperationDescriptor.Builder descriptorBuilder, @Nullable BuildOperationState defaultParent, BuildOperationExecution<O> execution) {
-        BuildOperationState parent = DefaultBuildOperationRunner.determineParent(descriptorBuilder, defaultParent);
+        BuildOperationState parent = AbstractBuildOperationRunner.determineParent(descriptorBuilder, defaultParent);
         BuildOperationDescriptor descriptor = createDescriptor(descriptorBuilder, parent);
 
         assertParentRunning("Cannot start operation (%s) as parent operation (%s) has already completed.", descriptor, parent);
@@ -186,13 +185,9 @@ public class DefaultBuildOperationRunner implements BuildOperationRunner {
         return current;
     }
 
-    protected BuildOperationState getCurrentBuildOperation() {
-        return (BuildOperationState) currentBuildOperationRef.get();
-    }
+    abstract protected BuildOperationState getCurrentBuildOperation();
 
-    protected void setCurrentBuildOperation(BuildOperationState parentState) {
-        currentBuildOperationRef.set(parentState);
-    }
+    abstract protected void setCurrentBuildOperation(BuildOperationState parentState);
 
     private static BuildOperationState determineParent(BuildOperationDescriptor.Builder descriptorBuilder, @Nullable BuildOperationState defaultParent) {
         BuildOperationState parent = (BuildOperationState) descriptorBuilder.getParentState();

@@ -40,13 +40,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @ServiceScope(Scopes.BuildSession)
-public class DefaultBuildOperationExecutor extends DefaultBuildOperationRunner implements BuildOperationExecutor, Stoppable {
+public class DefaultBuildOperationExecutor extends AbstractBuildOperationRunner implements BuildOperationExecutor, Stoppable {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultBuildOperationExecutor.class);
     private static final String LINE_SEPARATOR = SystemProperties.getInstance().getLineSeparator();
 
     private final ProgressLoggerFactory progressLoggerFactory;
     private final BuildOperationQueueFactory buildOperationQueueFactory;
     private final ManagedExecutor fixedSizePool;
+    private final CurrentBuildOperationRef currentBuildOperationRef = CurrentBuildOperationRef.instance();
 
     public DefaultBuildOperationExecutor(BuildOperationListener listener, Clock clock, ProgressLoggerFactory progressLoggerFactory, BuildOperationQueueFactory buildOperationQueueFactory, ExecutorFactory executorFactory, ParallelismConfiguration parallelismConfiguration, BuildOperationIdFactory buildOperationIdFactory) {
         super(listener, clock::getCurrentTime, buildOperationIdFactory);
@@ -173,6 +174,16 @@ public class DefaultBuildOperationExecutor extends DefaultBuildOperationRunner i
                 current.setRunning(false);
             }
         }
+    }
+
+    @Override
+    protected BuildOperationState getCurrentBuildOperation() {
+        return (BuildOperationState) currentBuildOperationRef.get();
+    }
+
+    @Override
+    protected void setCurrentBuildOperation(BuildOperationState parentState) {
+        currentBuildOperationRef.set(parentState);
     }
 
     /**
